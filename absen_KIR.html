@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KIR SIXTY Official Member Portal</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vue.js 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        [v-cloak] { display: none; }
+
+        @keyframes scaleIn {
+            0% { transform: scale(0.92); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-scale-in { animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white antialiased">
+
+    <div id="app" class="w-full max-w-6xl mx-auto px-4 py-8 md:py-12 flex-1 flex flex-col justify-center" v-cloak>
+        
+        <!-- HEADER UTAMA (SaaS Light Style) -->
+        <header class="flex flex-col sm:flex-row items-center justify-between border-b border-slate-200 pb-6 mb-8 gap-4 flex-none">
+            <div class="flex items-center space-x-3 text-center sm:text-left">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-600/20 text-white">
+                    <i class="fa-solid fa-atom text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xs font-bold tracking-widest text-indigo-600 uppercase">SMAN 60 JAKARTA</h1>
+                    <p class="text-lg font-extrabold text-slate-900 tracking-tight">Portal Akademik Kelompok Ilmiah Remaja</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-3">
+                <span id="time-badge" class="bg-white border border-slate-200 text-slate-600 px-3.5 py-2 rounded-xl text-xs font-mono font-bold shadow-sm">
+                    ⏰ {{ clockTime }} WIB
+                </span>
+                <button v-if="activeStudent" @click="logout" class="text-xs font-bold text-slate-600 hover:text-rose-600 transition-colors bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 px-4 py-2 rounded-xl cursor-pointer shadow-sm">
+                    <i class="fa-solid fa-sign-out mr-1.5"></i>Keluar Profil
+                </button>
+            </div>
+        </header>
+
+        <!-- Toast Notification Banner (Light Theme) -->
+        <transition name="fade">
+            <div v-if="toast.show" :class="['text-xs px-5 py-4 rounded-2xl mb-6 transition-all duration-300 flex justify-between items-center border shadow-lg shadow-slate-200/50', toast.isError ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-indigo-50 border-indigo-200 text-indigo-900']">
+                <div class="flex items-center space-x-2.5">
+                    <i :class="['fa-solid text-sm', toast.isError ? 'fa-triangle-exclamation text-rose-600' : 'fa-circle-check text-indigo-600']"></i>
+                    <span class="font-bold tracking-wide">{{ toast.msg }}</span>
+                </div>
+                <button @click="toast.show = false" class="font-bold pl-3 text-slate-400 hover:text-slate-700 transition-colors">✕</button>
+            </div>
+        </transition>
+
+        <!-- ========================================== -->
+        <!-- PROMINENT OVERLAY MODAL: TUNGGU SEBENTAR   -->
+        <!-- ========================================== -->
+        <div v-if="isSubmittingReg || isSubmittingTugas || isSubmittingLogin" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white border border-indigo-200 w-full max-w-sm rounded-3xl p-8 space-y-5 shadow-2xl text-center relative animate-scale-in">
+                <div class="w-16 h-16 rounded-2xl bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-600 text-3xl mx-auto shadow-sm">
+                    <i class="fa-solid fa-circle-notch animate-spin"></i>
+                </div>
+                <div class="space-y-1.5">
+                    <span class="bg-indigo-100 text-indigo-800 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border border-indigo-200">
+                        SEDANG MEMPROSES
+                    </span>
+                    <h3 class="text-xl font-black text-slate-900 tracking-tight uppercase mt-1">TUNGGU SEBENTAR...</h3>
+                    <p class="text-xs text-slate-600 leading-relaxed font-medium">
+                        {{ isSubmittingReg ? 'Sistem sedang mendaftarkan akun Anda & membuatkan folder Google Drive pribadi...' : (isSubmittingTugas ? 'Sistem sedang mengunggah berkas foto tugas Anda ke Google Drive pelatih...' : 'Sistem sedang memverifikasi profil akun Anda...') }}
+                    </p>
+                </div>
+                <div class="bg-amber-50 border border-amber-200 py-2.5 px-4 rounded-xl text-[11px] text-amber-800 font-bold flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-600"></i> Mohon jangan menekan tombol atau merefresh halaman
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 1: AUTHENTICATION (NOT LOGGED IN)   -->
+        <!-- ========================================== -->
+        <div v-if="!activeStudent" class="max-w-md w-full mx-auto space-y-6 flex-1 flex flex-col justify-center">
+            <div class="bg-slate-200/80 border border-slate-200 p-1.5 rounded-2xl flex">
+                <button @click="authTab = 'register'" :class="['flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer', authTab === 'register' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-600 hover:text-slate-900']">
+                    Pendaftaran Anggota
+                </button>
+                <button @click="authTab = 'login'" :class="['flex-1 py-3 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer', authTab === 'login' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-600 hover:text-slate-900']">
+                    Masuk Profil
+                </button>
+            </div>
+
+            <!-- Form Pendaftaran Mandiri -->
+            <form v-if="authTab === 'register'" @submit.prevent="register" class="space-y-4 bg-white border border-slate-200 p-6 md:p-8 rounded-3xl shadow-xl shadow-slate-200/50">
+                <div class="space-y-1 mb-2">
+                    <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Formulir Registrasi</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">Isi data diri asli Anda untuk terdaftar otomatis ke database sekolah.</p>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Lengkap</label>
+                    <input v-model="regForm.nama" type="text" placeholder="Sesuai nama absen kelas" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 focus:bg-white text-slate-900 placeholder-slate-400 transition-all font-semibold" required :disabled="isSubmittingReg">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kelas</label>
+                    <select v-model="regForm.kelas" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 focus:bg-white text-slate-800 font-semibold transition-all cursor-pointer" required :disabled="isSubmittingReg">
+                        <option value="" disabled selected>Pilih Kelas</option>
+                        <option value="X-1">X-1</option>
+                        <option value="X-2">X-2</option>
+                        <option value="X-3">X-3</option>
+                        <option value="X-4">X-4</option>
+                        <option value="X-5">X-5</option>
+                        <option value="X-6">X-6</option>
+                        <option value="X-7">X-7</option>
+                        <option value="XI-1">XI-1</option>
+                        <option value="XI-2">XI-2</option>
+                        <option value="XI-3">XI-3</option>
+                        <option value="XI-4">XI-4</option>
+                        <option value="XI-5">XI-5</option>
+                        <option value="XI-6">XI-6</option>
+                        <option value="XI-7">XI-7</option>
+                        <option value="XI-8">XI-8</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">No. WhatsApp</label>
+                    <input v-model="regForm.wa" type="tel" placeholder="Contoh: 0812345678" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 focus:bg-white text-slate-900 placeholder-slate-400 transition-all font-semibold" required :disabled="isSubmittingReg">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Buat PIN Akun (4 Digit Angka)</label>
+                    <input v-model="regForm.pin" type="password" maxlength="4" pattern="[0-9]*" inputmode="numeric" placeholder="Contoh: 1234" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs font-mono text-center tracking-widest focus:outline-none focus:border-indigo-600 focus:bg-white text-slate-900 placeholder-slate-400 font-bold transition-all" required :disabled="isSubmittingReg">
+                </div>
+
+                <!-- BUTTON REGISTRASI DENGAN INDIKATOR LOADING -->
+                <button type="submit" :disabled="isSubmittingReg" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-md shadow-indigo-600/20 cursor-pointer flex items-center justify-center space-x-2">
+                    <i v-if="isSubmittingReg" class="fa-solid fa-circle-notch animate-spin text-sm"></i>
+                    <span>{{ isSubmittingReg ? 'Sedang Memproses... Mohon Tunggu' : 'Kirim & Daftar Anggota' }}</span>
+                </button>
+            </form>
+
+            <!-- Form Masuk Profil -->
+            <form v-if="authTab === 'login'" @submit.prevent="login" class="space-y-4 bg-white border border-slate-200 p-6 md:p-8 rounded-3xl shadow-xl shadow-slate-200/50">
+                <div class="space-y-1 mb-2">
+                    <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Masuk Dasbor</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">Gunakan kombinasi Nama Lengkap, Kelas, dan PIN Akun Anda.</p>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Terdaftar</label>
+                    <input v-model="loginForm.nama" type="text" placeholder="Nama Lengkap" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 focus:bg-white text-slate-900 placeholder-slate-400 font-semibold transition-all" required :disabled="isSubmittingLogin">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Kelas Terdaftar</label>
+                    <select v-model="loginForm.kelas" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-indigo-600 focus:bg-white text-slate-800 font-semibold transition-all cursor-pointer" required :disabled="isSubmittingLogin">
+                        <option value="" disabled selected>Pilih Kelas</option>
+                        <option value="X-1">X-1</option>
+                        <option value="X-2">X-2</option>
+                        <option value="X-3">X-3</option>
+                        <option value="X-4">X-4</option>
+                        <option value="X-5">X-5</option>
+                        <option value="X-6">X-6</option>
+                        <option value="X-7">X-7</option>
+                        <option value="XI-1">XI-1</option>
+                        <option value="XI-2">XI-2</option>
+                        <option value="XI-3">XI-3</option>
+                        <option value="XI-4">XI-4</option>
+                        <option value="XI-5">XI-5</option>
+                        <option value="XI-6">XI-6</option>
+                        <option value="XI-7">XI-7</option>
+                        <option value="XI-8">XI-8</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">PIN Akun (4 Digit)</label>
+                    <input v-model="loginForm.pin" type="password" maxlength="4" pattern="[0-9]*" inputmode="numeric" placeholder="PIN" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs font-mono text-center tracking-widest focus:outline-none focus:border-indigo-600 focus:bg-white text-slate-900 placeholder-slate-400 font-bold transition-all" required :disabled="isSubmittingLogin">
+                </div>
+
+                <!-- BUTTON LOGIN DENGAN INDIKATOR LOADING -->
+                <button type="submit" :disabled="isSubmittingLogin" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-md shadow-indigo-600/20 cursor-pointer flex items-center justify-center space-x-2">
+                    <i v-if="isSubmittingLogin" class="fa-solid fa-circle-notch animate-spin text-sm"></i>
+                    <span>{{ isSubmittingLogin ? 'Sedang Memproses... Mohon Tunggu' : 'Buka Profil' }}</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- SCREEN 2: MAIN DASHBOARD (LOGGED IN)       -->
+        <!-- ========================================== -->
+        <div v-else class="space-y-6 flex-1">
+            
+            <!-- Welcome Header Panel (Vibrant Light Card) -->
+            <div class="bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-3xl p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden shadow-lg shadow-indigo-600/15">
+                <div class="absolute -right-12 -bottom-12 w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
+                <div class="space-y-1 relative z-10">
+                    <span class="bg-white/20 text-white text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-lg border border-white/20 backdrop-blur-sm">
+                        <i class="fa-solid fa-circle-check mr-1 text-[8px] animate-pulse text-emerald-300"></i> Sesi Aktif
+                    </span>
+                    <h2 class="text-2xl font-extrabold tracking-tight mt-3">Selamat Datang, {{ activeStudent.nama }}!</h2>
+                    <p class="text-xs text-indigo-100">Kelas Terdaftar: <strong class="text-white font-bold">{{ activeStudent.kelas }}</strong></p>
+                </div>
+                
+                <!-- Whatsapp invitation card -->
+                <div v-if="showWaCard" class="bg-white/10 border border-white/20 backdrop-blur-md p-4 rounded-2xl flex flex-col items-start gap-1 max-w-sm relative z-10">
+                    <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                        <i class="fa-brands fa-whatsapp text-emerald-300 text-sm"></i> Grup WhatsApp KIR
+                    </h4>
+                    <p class="text-[10px] text-indigo-100 leading-relaxed">Silakan gabung ke grup koordinasi resmi KIR SMAN 60.</p>
+                    <a href="https://chat.whatsapp.com/FopPVToKzOP9u8wjSWMQd9" target="_blank" class="bg-white text-indigo-900 hover:bg-indigo-50 text-[9px] font-bold px-3 py-1.5 rounded-lg mt-1.5 transition-all shadow-sm">Gabung Grup WA</a>
+                </div>
+            </div>
+
+            <!-- Dashboard Metrics Rows -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                <!-- Portfolio Card -->
+                <div class="bg-white border border-slate-200 p-6 rounded-3xl space-y-4 shadow-sm flex flex-col justify-between">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Portofolio Kehadiran</h3>
+                            <p class="text-[10px] text-slate-500">Presensi fisik terverifikasi secara real-time</p>
+                        </div>
+                        <i class="fa-solid fa-calendar-check text-indigo-600 text-lg"></i>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200 p-5 rounded-2xl text-center my-auto">
+                        <span class="text-[9px] text-slate-500 uppercase tracking-widest block mb-0.5">Total Kehadiran Fisik</span>
+                        <strong class="text-2xl font-extrabold text-slate-900">{{ attendanceCount }} Pertemuan</strong>
+                    </div>
+                </div>
+
+                <!-- Cash Ledger Card (TERINTEGRASI SPREADSHEET KAS BENDAHARA) -->
+                <div class="bg-white border border-slate-200 p-6 rounded-3xl space-y-4 shadow-sm flex flex-col justify-between">
+                    <div class="flex justify-between items-center pb-2 border-b border-slate-100">
+                        <div>
+                            <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider">Iuran Kas Anggota</h3>
+                            <p class="text-[10px] text-slate-500">Status setoran wajib kas bulanan</p>
+                        </div>
+                        <span class="text-[9px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                            Rp 10.000 / Bulan
+                        </span>
+                    </div>
+
+                    <!-- Nominal & Rincian Bulan -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-[9px] text-slate-500 uppercase tracking-widest block">Total Kas yang Sudah Disetor</span>
+                                <strong class="text-xl font-extrabold text-emerald-600">Rp {{ formatRupiah(activeStudent.kas_dibayar || 0) }}</strong>
+                            </div>
+                            <span v-if="kasState.isLoading" class="text-[10px] font-bold text-slate-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-circle-notch animate-spin text-indigo-500"></i> Cek Data Kas...
+                            </span>
+                            <span v-else-if="kasState.loaded && kasState.belumBayar.length === 0" class="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                <i class="fa-solid fa-circle-check text-emerald-600"></i> Lunas Bulan Aktif
+                            </span>
+                            <span v-else-if="kasState.loaded && kasState.belumBayar.length > 0" class="bg-rose-100 text-rose-800 border border-rose-200 text-[10px] font-extrabold px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                <i class="fa-solid fa-circle-exclamation text-rose-600"></i> Belum Lunas
+                            </span>
+                        </div>
+
+                        <!-- Chip Status Bulan Aktif -->
+                        <div v-if="kasState.rincianBulan.length > 0" class="flex flex-wrap gap-1.5 pt-2 border-t border-slate-200/80">
+                            <span v-for="item in kasState.rincianBulan" :key="item.bulan"
+                                  :class="['text-[9px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1',
+                                           item.kode === 'paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                           item.kode === 'half' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                                           'bg-rose-50 text-rose-700 border-rose-200']">
+                                <i :class="['fa-solid text-[8px]', item.kode === 'paid' ? 'fa-check' : (item.kode === 'half' ? 'fa-clock' : 'fa-xmark')]"></i>
+                                {{ item.bulan }}: {{ item.status }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Peringatan & Tombol Hubungi Bendahara (Nubzah) Jika Ada Bulan yang Belum Dibayar -->
+                    <div v-if="kasState.loaded && kasState.belumBayar.length > 0" class="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div class="space-y-0.5">
+                            <div class="text-[11px] font-extrabold text-amber-900 flex items-center gap-1.5">
+                                <i class="fa-solid fa-triangle-exclamation text-amber-600"></i>
+                                <span>Harap bayar uang kas ya!</span>
+                            </div>
+                            <p class="text-[10px] text-amber-800 leading-relaxed">
+                                Bulan <strong class="font-extrabold underline">{{ kasState.belumBayar.join(', ') }}</strong> tercatat belum lunas. Silakan hubungi bendahara (<strong class="font-bold">{{ kasState.bendaharaNama }}</strong>).
+                            </p>
+                        </div>
+                        <a :href="getWaBendaharaLink()" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer">
+                            <i class="fa-brands fa-whatsapp text-xs"></i>
+                            <span>Hubungi {{ kasState.bendaharaNama }}</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area Grid (Form selections) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <div class="lg:col-span-4 bg-white border border-slate-200 p-2 rounded-2xl flex lg:flex-col gap-1 shadow-sm">
+                    <button @click="subTab = 'absen'" :class="['flex-1 lg:w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer', subTab === 'absen' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50']">
+                        <i class="fa-solid fa-signature text-xs"></i><span>Absen Harian</span>
+                    </button>
+                    <button @click="subTab = 'tugas'" :class="['flex-1 lg:w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer', subTab === 'tugas' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50']">
+                        <i class="fa-solid fa-file-arrow-up text-xs"></i><span>Kumpul Tugas</span>
+                    </button>
+                    <button @click="subTab = 'eksternal'" :class="['flex-1 lg:w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer', subTab === 'eksternal' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50']">
+                        <i class="fa-solid fa-trophy text-xs"></i><span>Input Prestasi</span>
+                    </button>
+                </div>
+
+                <div class="lg:col-span-8">
+
+                    <!-- Tab A: Absen Mandiri -->
+                    <div v-if="subTab === 'absen'" class="bg-white border border-slate-200 p-6 rounded-3xl space-y-4 shadow-sm">
+                        <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Jurnal Presensi Mandiri</h4>
+                        
+                        <div v-if="isTimeLocked()" class="bg-slate-50 border border-slate-200 p-6 rounded-2xl text-center space-y-2">
+                            <div class="text-xs font-bold text-rose-600 flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-lock"></i>Presensi Dikunci
+                            </div>
+                            <p class="text-[11px] text-slate-500 max-w-sm mx-auto leading-relaxed">Formulir absensi mandiri hanya dibuka pada jam kegiatan KIR (15:00 - 17:00 WIB) sesuai ketetapan pembina SMAN 60.</p>
+                        </div>
+
+                        <form v-else @submit.prevent="submitAbsen" class="space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tanggal Kegiatan</label>
+                                <div class="flex gap-2">
+                                    <input v-model="absenForm.tanggal" type="date" class="flex-1 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-semibold transition-all" required :disabled="isSubmittingAbsen || submittedDates.includes(absenForm.tanggal)">
+                                    <button type="button" @click="setAbsenToday" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-4 rounded-xl transition-all border border-indigo-200" :disabled="isSubmittingAbsen || submittedDates.includes(absenForm.tanggal)">
+                                        Hari Ini
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Status Kehadiran</label>
+                                <select v-model="absenForm.status" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all cursor-pointer" required :disabled="isSubmittingAbsen || submittedDates.includes(absenForm.tanggal)">
+                                    <option value="Hadir">Hadir (Mengikuti Kegiatan)</option>
+                                    <option value="Izin">Izin</option>
+                                    <option value="Sakit">Sakit</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Sandi Papan Tulis (2 Digit)</label>
+                                <input v-model="absenForm.token" type="text" maxlength="2" placeholder="Masukkan 2 digit sandi dari papan" class="w-full bg-slate-50 px-4 py-3.5 rounded-xl border border-slate-200 text-xs font-mono text-center font-bold tracking-widest text-indigo-600 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all" required :disabled="isSubmittingAbsen || submittedDates.includes(absenForm.tanggal)">
+                            </div>
+
+                            <button type="submit" 
+                                    :disabled="isSubmittingAbsen || submittedDates.includes(absenForm.tanggal)" 
+                                    :class="['w-full font-bold py-3.5 rounded-xl text-xs transition-all text-white shadow-md cursor-pointer flex items-center justify-center space-x-2', 
+                                             submittedDates.includes(absenForm.tanggal) ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 shadow-indigo-600/20']">
+                                <i v-if="isSubmittingAbsen" class="fa-solid fa-circle-notch animate-spin text-sm"></i>
+                                <span v-if="submittedDates.includes(absenForm.tanggal)"><i class="fa-solid fa-check mr-1.5"></i>Sudah Absen Tanggal Ini</span>
+                                <span v-else-if="isSubmittingAbsen">Sedang Memproses... Mohon Tunggu</span>
+                                <span v-else>Kirim Absensi Mandiri</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Tab B: Kumpul Tugas -->
+                    <form v-if="subTab === 'tugas'" @submit.prevent="submitTugas" class="bg-white border border-slate-200 p-6 rounded-3xl space-y-4 shadow-sm">
+                        <div class="space-y-1">
+                            <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Kumpul Tugas Mini-Paper</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed">Unggah naskah tulisan tangan hasil pengerjaan mandiri Anda di sini.</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tanggal Pertemuan</label>
+                            <div class="flex gap-2">
+                                <input v-model="tugasForm.tanggal" type="date" class="flex-1 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-indigo-600 focus:bg-white font-semibold transition-all" required :disabled="isSubmittingTugas">
+                                <button type="button" @click="setTugasToday" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-4 rounded-xl transition-all border border-indigo-200" :disabled="isSubmittingTugas">
+                                    Hari Ini
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase">Lampiran Halaman Tugas (Multi-Page)</label>
+                            <div class="space-y-1.5 max-h-32 overflow-y-auto no-scrollbar">
+                                <div v-for="(file, idx) in tugasForm.files" :key="idx" class="bg-slate-50 border border-slate-200 p-3 rounded-xl flex items-center justify-between text-xs text-slate-700 font-medium">
+                                    <span class="truncate"><i class="fa-solid fa-camera mr-2 text-indigo-600"></i>{{ file.name }}</span>
+                                    <button type="button" @click="removeFile(idx)" class="text-rose-600 hover:text-rose-800 font-bold text-[10px] px-2.5 py-1 rounded-lg hover:bg-rose-50 transition-all" :disabled="isSubmittingTugas">Hapus</button>
+                                </div>
+                            </div>
+                            
+                            <input type="file" ref="fileInput" accept="image/*" multiple class="hidden" @change="handleFileChange">
+                            
+                            <button type="button" @click="triggerFileSelect" :disabled="isSubmittingTugas" class="w-full py-3.5 border border-dashed border-indigo-200 hover:border-indigo-400 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>Tambah Halaman Gambar
+                            </button>
+                        </div>
+
+                        <button type="submit" :disabled="isSubmittingTugas" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-md shadow-indigo-600/20 cursor-pointer flex items-center justify-center space-x-2">
+                            <i v-if="isSubmittingTugas" class="fa-solid fa-circle-notch animate-spin text-sm"></i>
+                            <span>{{ isSubmittingTugas ? 'Sedang Memproses... Mohon Tunggu' : 'Kirim Seluruh Halaman' }}</span>
+                        </button>
+                    </form>
+
+                    <!-- Tab C: Prestasi Eksternal -->
+                    <form v-if="subTab === 'eksternal'" @submit.prevent="submitExternal" class="bg-white border border-slate-200 p-6 rounded-3xl space-y-4 shadow-sm">
+                        <div class="space-y-1">
+                            <h4 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Input Prestasi Eksternal</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed">Sertifikat webinar, pelatihan, atau penghargaan lomba dapat diajukan di bawah ini.</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Jenis Kegiatan</label>
+                                <select v-model="extForm.jenis" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-600 transition-all" :disabled="isSubmittingExt">
+                                    <option value="Seminar">Webinar / Seminar</option>
+                                    <option value="Lomba">Lomba KTI / Riset</option>
+                                    <option value="Pelatihan">Pelatihan Ilmiah</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Skala</label>
+                                <select v-model="extForm.skala" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:outline-none focus:border-indigo-600 transition-all" :disabled="isSubmittingExt">
+                                    <option value="Sekolah">Sekolah</option>
+                                    <option value="Kota">Kota / Provinsi</option>
+                                    <option value="Nasional">Nasional / Global</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Nama Piagam / Topik Kegiatan</label>
+                            <input v-model="extForm.nama" type="text" placeholder="Contoh: Olimpiade Fisika DKI Jakarta" class="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-indigo-600 transition-all" required :disabled="isSubmittingExt">
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Dokumen Bukti Fisik</label>
+                            <input type="file" ref="sertifikatInput" accept="image/*,application/pdf" class="hidden" @change="handleSertifikatChange">
+                            
+                            <div class="border border-dashed border-slate-200 bg-slate-50 p-4 rounded-xl flex items-center justify-between text-xs">
+                                <span class="text-slate-500 font-medium truncate">{{ extForm.buktiFile || 'Belum ada berkas terunggah...' }}</span>
+                                <button type="button" @click="triggerSertifikatSelect" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-lg text-[10px] transition-all border border-indigo-200 cursor-pointer" :disabled="isSubmittingExt">
+                                    Pilih Bukti
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" :disabled="isSubmittingExt" class="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-md shadow-indigo-600/20 cursor-pointer flex items-center justify-center space-x-2">
+                            <i v-if="isSubmittingExt" class="fa-solid fa-circle-notch animate-spin text-sm"></i>
+                            <span>{{ isSubmittingExt ? 'Sedang Memproses... Mohon Tunggu' : 'Klaim Poin Prestasi' }}</span>
+                        </button>
+                    </form>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PROMINENT WARNING MODAL: ALREADY REGISTERED-->
+        <!-- ========================================== -->
+        <div v-if="alreadyRegisteredModal.show" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white border border-amber-300 w-full max-w-md rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl text-center relative animate-scale-in">
+                <div class="w-16 h-16 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-600 text-3xl mx-auto shadow-sm">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                
+                <div class="space-y-2">
+                    <span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border border-amber-200">
+                        DATA SUDAH TERDAFTAR
+                    </span>
+                    <h3 class="text-lg font-extrabold text-slate-900 tracking-tight">Kamu Sudah Punya Akun!</h3>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Nama Lengkap kamu sudah resmi tercatat di database sekolah. Kamu tidak perlu melakukan registrasi ulang.
+                    </p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl text-left space-y-2 text-xs text-slate-700 font-mono">
+                    <div class="flex justify-between border-b border-slate-200 pb-2">
+                        <span class="text-slate-500">Nama Lengkap:</span>
+                        <strong class="text-indigo-600">{{ alreadyRegisteredModal.data.nama }}</strong>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-200 pb-2">
+                        <span class="text-slate-500">Kelas Terdaftar:</span>
+                        <strong class="text-slate-900">{{ alreadyRegisteredModal.data.kelas }}</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">PIN Akun:</span>
+                        <strong class="text-emerald-600 font-bold">**** (4 Digit)</strong>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button @click="closeAlreadyRegisteredModal" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-md shadow-indigo-600/20 cursor-pointer flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span>Lanjut ke Masuk Profil</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PROMINENT SUCCESS MODAL: TASK SUBMITTED    -->
+        <!-- ========================================== -->
+        <div v-if="tugasSuccessModal.show" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white border border-emerald-300 w-full max-w-md rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl text-center relative animate-scale-in">
+                <div class="w-16 h-16 rounded-2xl bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-600 text-3xl mx-auto shadow-sm">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                
+                <div class="space-y-2">
+                    <span class="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border border-emerald-200">
+                        TUGAS BERHASIL DISUBMIT!
+                    </span>
+                    <h3 class="text-lg font-extrabold text-slate-900 tracking-tight">Tugas Berhasil Terkirim</h3>
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Foto naskah tugas tulisan tangan Anda telah sukses diunggah dan tersimpan rapi di Google Drive pelatih!
+                    </p>
+                </div>
+
+                <div class="bg-slate-50 border border-slate-200 p-4 rounded-2xl text-left space-y-2 text-xs text-slate-700 font-mono">
+                    <div class="flex justify-between border-b border-slate-200 pb-2">
+                        <span class="text-slate-500">Nama Lengkap:</span>
+                        <strong class="text-indigo-600">{{ activeStudent ? activeStudent.nama : '-' }}</strong>
+                    </div>
+                    <div class="flex justify-between border-b border-slate-200 pb-2">
+                        <span class="text-slate-500">Kelas Terdaftar:</span>
+                        <strong class="text-slate-900">{{ activeStudent ? activeStudent.kelas : '-' }}</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">Tanggal Pertemuan:</span>
+                        <strong class="text-emerald-600 font-bold">{{ tugasSuccessModal.tanggal }}</strong>
+                    </div>
+                </div>
+
+                <div class="pt-2">
+                    <button @click="tugasSuccessModal.show = false" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-md shadow-emerald-600/20 cursor-pointer flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Siap, Mantap!</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- FOOTER BRAND -->
+        <footer class="mt-12 pt-6 border-t border-slate-200 text-center text-[10px] text-slate-400 uppercase tracking-widest font-semibold flex-none">
+            Sistem Terpadu KIR SMAN 60 Jakarta • All Rights Reserved © 2026
+        </footer>
+
+    </div>
+
+    <script>
+        const { createApp, ref, computed } = Vue;
+        
+        // 1. TETAP PAKAI N8N UNTUK LOGIN, REGISTER, ABSEN MANDIRI, TUGAS & PRESTASI
+        const N8N_WEBHOOK_URL = "https://n8n-oc9is1kywcyb.jkt5.sumopod.my.id";
+        
+        // 2. APPS SCRIPT PERTAMA: TARIK DATA TOTAL KEHADIRAN DARI SPREADSHEET DATABASE SISWA
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxLv-7AvOEnZW3juW5rBPLs27HhB89l699_5vPgrqIfRwHIO4EubM0DlDqZbtwnAJA2/exec";
+
+        // 3. APPS SCRIPT KEDUA: TARIK DATA STATUS KAS BULAN AKTIF DARI SPREADSHEET KAS KIRSIXTY
+        const APPS_SCRIPT_KAS_URL = "https://script.google.com/macros/s/AKfycbwEzWsi1LExOdzuaRiLzTBRLZUuLYF1OYsXko1E1HPsXUoyxu1J_bmblVhkN_4efR4eCA/exec";
+
+        createApp({
+            setup() {
+                const activeStudent = ref(null);
+                const authTab = ref('register');
+                const subTab = ref('absen');
+                const showWaCard = ref(false);
+
+                // Submitting / Loading Indicators
+                const isSubmittingReg = ref(false);
+                const isSubmittingLogin = ref(false);
+                const isSubmittingAbsen = ref(false);
+                const isSubmittingTugas = ref(false);
+                const isSubmittingExt = ref(false);
+                const submittedDates = ref([]); 
+
+                // State Khusus Iuran Kas Anggota
+                const kasState = ref({
+                    isLoading: false,
+                    loaded: false,
+                    belumBayar: [],
+                    rincianBulan: [],
+                    bendaharaNama: 'Nubzah',
+                    bendaharaWa: 'https://wa.me/6285883774252'
+                });
+
+                // Modal Warning Already Registered
+                const alreadyRegisteredModal = ref({
+                    show: false,
+                    data: { nama: '', kelas: '', pin: '' }
+                });
+
+                // Modal Success Task Submitted
+                const tugasSuccessModal = ref({
+                    show: false,
+                    tanggal: ''
+                });
+
+                // Form models
+                const regForm = ref({ nama: '', kelas: '', wa: '', pin: '' });
+                const loginForm = ref({ nama: '', kelas: '', pin: '' });
+                const absenForm = ref({ tanggal: new Date().toISOString().split('T')[0], status: 'Hadir', token: '' });
+                const tugasForm = ref({ tanggal: new Date().toISOString().split('T')[0], files: [] });
+                const extForm = ref({ jenis: 'Seminar', nama: '', skala: 'Sekolah', buktiFile: '', rawFile: null });
+
+                // DOM Refs
+                const fileInput = ref(null);
+                const sertifikatInput = ref(null);
+
+                const attendanceCount = ref(0);
+                const studentRank = ref(12);
+                const dynamicCompetencyScore = ref(78);
+
+                // Clock State
+                const clockTime = ref('');
+                const updateClock = () => {
+                    const now = new Date();
+                    clockTime.value = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                };
+                updateClock();
+                setInterval(updateClock, 1000);
+
+                // Toast Notification State
+                const toast = ref({ show: false, msg: '', isError: false });
+                const triggerToast = (msg, isError = false) => {
+                    toast.value.msg = msg;
+                    toast.value.isError = isError;
+                    toast.value.show = true;
+                    setTimeout(() => toast.value.show = false, 4500);
+                };
+
+                const isTimeLocked = () => {
+                    const hour = new Date().getHours();
+                    return hour < 15 || hour >= 17;
+                };
+
+                const setAbsenToday = () => { absenForm.value.tanggal = new Date().toISOString().split('T')[0]; };
+                const setTugasToday = () => { tugasForm.value.tanggal = new Date().toISOString().split('T')[0]; };
+
+                const triggerFileSelect = () => { fileInput.value.click(); };
+
+                const handleFileChange = (event) => {
+                    const selectedFiles = Array.from(event.target.files);
+                    selectedFiles.forEach(file => {
+                        tugasForm.value.files.push(file);
+                    });
+                    triggerToast(`${selectedFiles.length} foto halaman tugas berhasil dilampirkan.`);
+                };
+
+                const removeFile = (idx) => { tugasForm.value.files.splice(idx, 1); };
+
+                const triggerSertifikatSelect = () => { sertifikatInput.value.click(); };
+
+                const handleSertifikatChange = (event) => {
+                    const file = event.target.files[0];
+                    if (file) {
+                        extForm.value.rawFile = file;
+                        extForm.value.buktiFile = file.name;
+                        triggerToast("Sertifikat asli berhasil dilampirkan.");
+                    }
+                };
+
+                const formatRupiah = (val) => {
+                    return val.toLocaleString('id-ID');
+                };
+
+                // FUNGSI 1: Tarik Total Kehadiran Fisik dari Google Spreadsheet Database Siswa
+                const fetchAttendanceFromGAS = async (namaSiswa) => {
+                    try {
+                        const res = await fetch(APPS_SCRIPT_URL);
+                        const json = await res.json();
+                        const list = json.data || json.matriks_siswa || [];
+                        if (Array.isArray(list)) {
+                            const found = list.find(s => (s.nama || '').trim().toLowerCase() === (namaSiswa || '').trim().toLowerCase());
+                            if (found) {
+                                attendanceCount.value = parseInt(found.hadir ?? found.absensi ?? found.jumlah_hadir ?? 0) || 0;
+                            }
+                        }
+                    } catch (err) {
+                        console.warn("Gagal menarik data absensi dari Apps Script:", err);
+                    }
+                };
+
+                // FUNGSI 2: Tarik Data Kas Bulan Aktif dari Google Spreadsheet Kas Bendahara (Smart Matching)
+                const fetchKasFromGAS = async (namaSiswa, kelasSiswa) => {
+                    kasState.value.isLoading = true;
+                    try {
+                        const params = new URLSearchParams({
+                            nama: (namaSiswa || '').trim(),
+                            kelas: (kelasSiswa || '').trim()
+                        });
+                        const res = await fetch(`${APPS_SCRIPT_KAS_URL}?${params.toString()}`);
+                        const json = await res.json();
+
+                        if (json && json.success && json.data) {
+                            if (activeStudent.value) {
+                                activeStudent.value.kas_dibayar = parseInt(json.data.kas_dibayar) || 0;
+                            }
+                            kasState.value.belumBayar = Array.isArray(json.data.belum_bayar) ? json.data.belum_bayar : [];
+                            kasState.value.rincianBulan = Array.isArray(json.data.rincian_bulan) ? json.data.rincian_bulan : [];
+                            if (json.bendahara) {
+                                kasState.value.bendaharaNama = json.bendahara.nama || 'Nubzah';
+                                kasState.value.bendaharaWa = json.bendahara.wa_link || 'https://wa.me/6285883774252';
+                            }
+                            kasState.value.loaded = true;
+                        }
+                    } catch (err) {
+                        console.warn("Gagal menarik data kas dari Apps Script Kas:", err);
+                    } finally {
+                        kasState.value.isLoading = false;
+                    }
+                };
+
+                const getWaBendaharaLink = () => {
+                    const base = kasState.value.bendaharaWa || 'https://wa.me/6285883774252';
+                    if (!activeStudent.value) return base;
+                    const bulanStr = kasState.value.belumBayar.join(', ');
+                    const text = `Halo Kak ${kasState.value.bendaharaNama}, saya ${activeStudent.value.nama} dari kelas ${activeStudent.value.kelas} ingin konfirmasi pembayaran uang kas KIR untuk bulan ${bulanStr}.`;
+                    return `${base}?text=${encodeURIComponent(text)}`;
+                };
+
+                // ACTION: Pendaftaran Anggota (Tetap 100% Pakai n8n Asli)
+                const register = async () => {
+                    if (regForm.value.pin.length !== 4 || isNaN(Number(regForm.value.pin))) {
+                        triggerToast("Gagal: PIN harus berupa 4 digit angka!", true);
+                        return;
+                    }
+
+                    isSubmittingReg.value = true;
+                    try {
+                        const res = await fetch(`${N8N_WEBHOOK_URL}/webhook/register`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(regForm.value)
+                        });
+                        
+                        const data = await res.json();
+
+                        // POP-UP WARNING: IF ALREADY REGISTERED
+                        if (data && (data.status === 'already_registered' || data.is_duplicate)) {
+                            alreadyRegisteredModal.value.data = {
+                                nama: data.data?.nama || regForm.value.nama,
+                                kelas: data.data?.kelas || regForm.value.kelas,
+                                pin: data.data?.pin || '****'
+                            };
+                            alreadyRegisteredModal.value.show = true;
+                        } else if (res.ok) {
+                            triggerToast("Registrasi Berhasil ✓ Silakan masuk menggunakan Nama, Kelas & PIN Anda.");
+                            loginForm.value.nama = regForm.value.nama;
+                            loginForm.value.kelas = regForm.value.kelas;
+                            authTab.value = 'login';
+                            regForm.value = { nama: '', kelas: '', wa: '', pin: '' };
+                        } else {
+                            triggerToast(data.message || "Pendaftaran ditolak oleh server.", true);
+                        }
+                    } catch (e) {
+                        triggerToast("Gagal terhubung ke server n8n.", true);
+                    } finally {
+                        isSubmittingReg.value = false;
+                    }
+                };
+
+                const closeAlreadyRegisteredModal = () => {
+                    loginForm.value.nama = alreadyRegisteredModal.value.data.nama;
+                    loginForm.value.kelas = alreadyRegisteredModal.value.data.kelas;
+                    alreadyRegisteredModal.value.show = false;
+                    authTab.value = 'login';
+                };
+
+                // ACTION: Masuk Profil (Tetap 100% Pakai n8n Asli + Auto-Sync Absen & Kas dari 2 Apps Script)
+                const login = async () => {
+                    if (loginForm.value.pin.length !== 4 || isNaN(Number(loginForm.value.pin))) {
+                        triggerToast("Gagal: PIN harus berupa 4 digit angka!", true);
+                        return;
+                    }
+
+                    isSubmittingLogin.value = true;
+                    try {
+                        const res = await fetch(`${N8N_WEBHOOK_URL}/webhook/login`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(loginForm.value)
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            
+                            if (data && data.success && data.data) {
+                                activeStudent.value = { 
+                                    nama: data.data.nama, 
+                                    kelas: data.data.kelas,
+                                    kas_dibayar: data.data.kas_dibayar || 0
+                                };
+                                attendanceCount.value = data.data.jumlah_hadir || 0;
+                                submittedDates.value = JSON.parse(localStorage.getItem(`absen_dates_${activeStudent.value.nama.replace(/\s+/g, '_')}`) || '[]');
+                                triggerToast(`Selamat datang kembali, ${activeStudent.value.nama}!`);
+
+                                // 1. Tarik angka kehadiran terbaru dari Apps Script Database Siswa
+                                fetchAttendanceFromGAS(activeStudent.value.nama);
+
+                                // 2. Tarik status & nominal kas terbaru dari Apps Script Kas Bendahara
+                                fetchKasFromGAS(activeStudent.value.nama, activeStudent.value.kelas);
+                            } else {
+                                triggerToast(data.message || "Kombinasi Nama, Kelas, atau PIN salah.", true);
+                            }
+                        } else {
+                            const errData = await res.json();
+                            triggerToast(errData.message || "Gagal masuk. Kombinasi Nama, Kelas, atau PIN salah.", true);
+                        }
+                    } catch (e) {
+                        triggerToast("Gagal terhubung ke database. Cek koneksi!", true);
+                    } finally {
+                        isSubmittingLogin.value = false;
+                    }
+                };
+
+                // ACTION: Pengiriman Presensi Mandiri (FEAT ABSEN TIDAK DISENTUH SAMA SEKALI)
+                const submitAbsen = async () => {
+                    const uniqueStorageKey = `absen_dates_${activeStudent.value.nama.replace(/\s+/g, '_')}`;
+                    if (submittedDates.value.includes(absenForm.value.tanggal)) {
+                        triggerToast("Kamu sudah melakukan absensi untuk tanggal ini!", true);
+                        return;
+                    }
+
+                    isSubmittingAbsen.value = true;
+                    try {
+                        const res = await fetch(`${N8N_WEBHOOK_URL}/webhook/absen`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                tanggal: absenForm.value.tanggal, 
+                                status: absenForm.value.status,
+                                token: absenForm.value.token,
+                                nama: activeStudent.value.nama,
+                                kelas: activeStudent.value.kelas
+                            })
+                        });
+                        if (res.ok) {
+                            attendanceCount.value++;
+                            submittedDates.value.push(absenForm.value.tanggal);
+                            localStorage.setItem(uniqueStorageKey, JSON.stringify(submittedDates.value));
+                            triggerToast("Absen Berhasil ✓");
+                        } else {
+                            const errData = await res.json();
+                            triggerToast(`Gagal: ${errData.message || 'Sandi salah!'}`, true);
+                        }
+                    } catch (e) {
+                        triggerToast("Gagal terhubung ke server n8n.", true);
+                    } finally {
+                        isSubmittingAbsen.value = false;
+                    }
+                };
+
+                // ACTION: Pengiriman Berkas Tugas
+                const submitTugas = async () => {
+                    if (tugasForm.value.files.length === 0) {
+                        triggerToast("Gagal: Harap pilih minimal 1 foto lembar tugas!", true);
+                        return;
+                    }
+                    isSubmittingTugas.value = true;
+                    const formData = new FormData();
+                    formData.append("nama", activeStudent.value.nama);
+                    formData.append("kelas", activeStudent.value.kelas);
+                    formData.append("tanggal", tugasForm.value.tanggal);
+                    
+                    tugasForm.value.files.forEach((file, i) => {
+                        formData.append(`file_${i}`, file);
+                    });
+
+                    try {
+                        triggerToast("Sedang mengunggah berkas asli...");
+                        const res = await fetch(`${N8N_WEBHOOK_URL}/webhook/tugas`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (res.ok) {
+                            tugasSuccessModal.value = {
+                                show: true,
+                                tanggal: tugasForm.value.tanggal
+                            };
+                            triggerToast("Semua foto tugas terunggah ke Google Drive pelatih!");
+                            tugasForm.value.files = [];
+                        } else {
+                            triggerToast("Gagal mengunggah tugas. Respons n8n tidak OK.", true);
+                        }
+                    } catch (e) {
+                        triggerToast("Gagal mengunggah berkas asli. Pastikan jaringan aman!", true);
+                    } finally {
+                        isSubmittingTugas.value = false;
+                    }
+                };
+
+                // ACTION: Pengiriman Berkas Prestasi
+                const submitExternal = async () => {
+                    if (!extForm.value.rawFile) {
+                        triggerToast("Gagal: Harap pilih bukti foto/sertifikat terlebih dahulu!", true);
+                        return;
+                    }
+                    isSubmittingExt.value = true;
+                    const formData = new FormData();
+                    formData.append("nama", activeStudent.value.nama);
+                    formData.append("kelas", activeStudent.value.kelas);
+                    formData.append("jenis", extForm.value.jenis);
+                    formData.append("nama_kegiatan", extForm.value.nama);
+                    formData.append("skala", extForm.value.skala);
+                    formData.append("file_0", extForm.value.rawFile);
+
+                    try {
+                        triggerToast("Sedang mengirim berkas sertifikat...");
+                        const res = await fetch(`${N8N_WEBHOOK_URL}/webhook/prestasi`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        if (res.ok) {
+                            triggerToast("Sertifikat prestasi berhasil diverifikasi pelatih!");
+                            extForm.value = { jenis: 'Seminar', nama: '', skala: 'Sekolah', buktiFile: '', rawFile: null };
+                        } else {
+                            triggerToast("Gagal mengirim data prestasi. Respons n8n tidak OK.", true);
+                        }
+                    } catch (e) {
+                        triggerToast("Gagal terhubung ke n8n. Periksa koneksi internet!", true);
+                    } finally {
+                        isSubmittingExt.value = false;
+                    }
+                };
+
+                const logout = () => {
+                    activeStudent.value = null;
+                    showWaCard.value = false;
+                    submittedDates.value = [];
+                    kasState.value = {
+                        isLoading: false,
+                        loaded: false,
+                        belumBayar: [],
+                        rincianBulan: [],
+                        bendaharaNama: 'Nubzah',
+                        bendaharaWa: 'https://wa.me/6285883774252'
+                    };
+                    triggerToast("Sesi portal diakhiri.");
+                };
+
+                return {
+                    activeStudent, authTab, subTab, showWaCard, regForm, loginForm, absenForm, tugasForm, extForm,
+                    attendanceCount, studentRank, dynamicCompetencyScore, toast, triggerToast, isTimeLocked,
+                    setAbsenToday, setTugasToday, logout, register, login, submitAbsen, submitTugas, submitExternal,
+                    isSubmittingReg, isSubmittingLogin, isSubmittingAbsen, isSubmittingTugas, isSubmittingExt, submittedDates,
+                    alreadyRegisteredModal, closeAlreadyRegisteredModal, tugasSuccessModal,
+                    fileInput, sertifikatInput, triggerFileSelect, handleFileChange, removeFile, triggerSertifikatSelect, handleSertifikatChange,
+                    formatRupiah, clockTime, kasState, getWaBendaharaLink
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
